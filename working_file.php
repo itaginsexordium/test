@@ -47,18 +47,27 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
     private LoggerInterface $log;
     private Service $service;
     private Registry $doctrine;
+    private UserOptions $userOptions;
+    private CreateNewPaymentUseCase $createNewPaymentUseCase;
 
-    public function __construct()
-    {
-        $this->repository = new ContentPlanRepository();
-        $this->em = new EntityManagerInterface();
-        $this->log = new LoggerInterface();
-        $this->service = new Service();
-        $this->doctrine = new Registry();
-        $this->userOptions = new UserOptions();
+    public function __construct(
+        ContentPlanRepository $repository,
+        EntityManagerInterface $em,
+        LoggerInterface $log,
+        Service $service,
+        Registry $doctrine,
+        UserOptions $userOptions,
+        CreateNewPaymentUseCase $createNewPaymentUseCase
+    ) {
+        $this->repository = $repository;
+        $this->em = $em;
+        $this->log = $log;
+        $this->service = $service;
+        $this->doctrine = $doctrine;
+        $this->userOptions = $userOptions;
 
         //альтернативный класс для одного кодового блока 
-        $this->createNewPaymentUseCase = new CreateNewPaymentUseCase();
+        $this->createNewPaymentUseCase = $createNewPaymentUseCase;
     }
 
     // вынесенный колбек для транзакций  не знал как назвать по этому такое вот название 
@@ -295,17 +304,29 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
     }
 }
 
-
 class CreateNewPaymentUseCase
 {
-    public function __construct()
-    {
-        $this->repository = new ContentPlanRepository();
-        $this->log = new LoggerInterface();
-        $this->userCurrency = new UserCurrency();
-        $this->doctrine = new Registry();
-        $this->payments = new Payments();
-        $this->stripe = new StripeClient();
+    private LoggerInterface $log;
+    private UserCurrency $userCurrency;
+    private Registry $doctrine;
+    private Payments $payments;
+    private StripeClient $stripe;
+    private Payment $payment;
+
+    public function __construct(
+        LoggerInterface $log,
+        UserCurrency $userCurrency,
+        Registry $doctrine,
+        Payments $payments,
+        StripeClient $stripe,
+        Payment $payment
+    ) {
+        $this->log = $log;
+        $this->userCurrency = $userCurrency;
+        $this->doctrine = $doctrine;
+        $this->payments = $payments;
+        $this->stripe = $stripe;
+        $this->payment = $payment;
     }
 
     public function execute($client): Payment
@@ -343,10 +364,6 @@ class CreateNewPaymentUseCase
                     // ignore array, no need for the testing task
                     'customer' => $stripeCustomer->getStripeCustomerId(),
                     'payment_method' => $defaultPaymentMethodId,
-
-                    // оставил бы только int float не должен храниться в бд при подсчёте денег 
-                    //хорошим тоном было бы сохранять в копейках пенях тыйнах или прочих расчётных разметных еденицах 
-
                     'amount' => intval(floatval($amount) * 100),
                     'currency' => $currency,
                 ]
@@ -361,7 +378,7 @@ class CreateNewPaymentUseCase
             return null;
         }
 
-        $payment = new Payment();
+        $payment = $this->payment;
         $payment->setStripeCustomerId($stripeCustomer->getStripeCustomerId());
         $payment->setSystem('stripe');
         $payment->setUser($client);
