@@ -78,6 +78,20 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
     // }
 
 
+
+    // метод для замены кода везде где используется  
+    //
+    // $userPlan->setSubscriptionUpdateStatus('in_progress');
+    // $this->em->persist($userPlan);
+    // $this->em->flush();
+    //
+    // private function updateStatus($contentPlan, String $status)
+    // {
+    //     $contentPlan->setSubscriptionUpdateStatus($status);
+    //     $this->em->persist($contentPlan);
+    //     $this->em->flush();
+    // }
+
     //патерн екзекутер круто но лучше сделать по старому что б это было явно по этому предложил бы вынести в публичный метод execute или run 
     public function __invoke(ExpireContentPlan $message)
     {
@@ -124,6 +138,7 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
                 return false;
             }
 
+            //подобные куски кода вынести в отдельный метод так как логика его повторяется
             $userPlan->setSubscriptionUpdateStatus('in_progress');
             $this->em->persist($userPlan);
             $this->em->flush();

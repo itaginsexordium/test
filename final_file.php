@@ -52,11 +52,16 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
             return false;
         }
 
-        $userPlan->setSubscriptionUpdateStatus('in_progress');
-        $this->em->persist($userPlan);
-        $this->em->flush();
-
+        $this->updateStatus($userPlan, 'in_progress');
         return true;
+    }
+
+
+    private function updateStatus($contentPlan, String $status)
+    {
+        $contentPlan->setSubscriptionUpdateStatus($status);
+        $this->em->persist($contentPlan);
+        $this->em->flush();
     }
 
     public function __invoke(ExpireContentPlan $message)
@@ -86,21 +91,16 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
         $nextContentPlan = $this->repository->getNext($contentPlan);
         //должен ли тут быть in_progress не известно возможно есть ещё и просто статус progress 
         if (in_array($nextContentPlan->getStatus(), ['progress', 'done'])) {
-            $nextContentPlan->getClient()->getUserPlan()->setSubscriptionUpdateStatus('ready');
-            $this->em->persist($nextContentPlan);
-            $this->em->flush();
+            $this->updateStatus($nextContentPlan->getClient()->getUserPlan(), 'ready');
             return;
         }
-
 
         if ($nextContentPlan->getStatus() === 'paid') {
             $this->service->prepareNextContentPlan($nextContentPlan, $contentPlan);
         } else {
             $autorenew = $this->userOptions->getByUserId($userId)->get('has_subscription');
             if ($autorenew === 1) {
-                $userPlan->setSubscriptionUpdateStatus('ready');
-                $this->em->persist($userPlan);
-                $this->em->flush();
+                $this->updateStatus($userPlan, 'ready');
                 return;
             } else {
                 $payment = $this->createNewPaymentUseCase->execute($contentPlan->getClient());
@@ -111,9 +111,7 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
         }
 
         $userPlan = $contentPlan->getClient()->getUserPlan();
-        $userPlan->setSubscriptionUpdateStatus('ready');
-        $this->em->persist($userPlan);
-        $this->em->flush();
+        $this->updateStatus($userPlan, 'ready');
     }
 }
 
