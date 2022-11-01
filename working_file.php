@@ -319,14 +319,14 @@ class CreateNewPaymentUseCase
         Registry $doctrine,
         Payments $payments,
         StripeClient $stripe,
-        Payment $payment
     ) {
         $this->log = $log;
         $this->userCurrency = $userCurrency;
         $this->doctrine = $doctrine;
         $this->payments = $payments;
         $this->stripe = $stripe;
-        $this->payment = $payment;
+        //добавим фасад из ларавель 
+        $this->payment = Payment::factory()->create();
     }
 
     public function execute($client): Payment
@@ -364,6 +364,10 @@ class CreateNewPaymentUseCase
                     // ignore array, no need for the testing task
                     'customer' => $stripeCustomer->getStripeCustomerId(),
                     'payment_method' => $defaultPaymentMethodId,
+
+                    // оставил бы только int float не должен храниться в бд при подсчёте денег 
+                    //хорошим тоном было бы сохранять в копейках пенях тыйнах или прочих расчётных разметных еденицах 
+
                     'amount' => intval(floatval($amount) * 100),
                     'currency' => $currency,
                 ]

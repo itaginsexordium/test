@@ -144,14 +144,14 @@ class CreateNewPaymentUseCase
         Registry $doctrine,
         Payments $payments,
         StripeClient $stripe,
-        Payment $payment
     ) {
         $this->log = $log;
         $this->userCurrency = $userCurrency;
         $this->doctrine = $doctrine;
         $this->payments = $payments;
         $this->stripe = $stripe;
-        $this->payment = $payment;
+        //добавим фасад из ларавель 
+        $this->payment = Payment::factory()->create();
     }
 
     public function execute($client): Payment
@@ -203,6 +203,7 @@ class CreateNewPaymentUseCase
             return null;
         }
 
+        //спорный момент где инцилизировать новый обьект payment 
         $payment = $this->payment;
         $payment->setStripeCustomerId($stripeCustomer->getStripeCustomerId());
         $payment->setSystem('stripe');
