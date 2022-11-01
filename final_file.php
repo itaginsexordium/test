@@ -25,13 +25,13 @@ use Stripe\StripeClient;
 
 final class ExpireContentPlanHandler implements MessageHandlerInterface
 {
-    public ContentPlanRepository $repository;
-    public EntityManagerInterface $em;
-    public LoggerInterface $log;
-    public Service $service;
-    public Registry $doctrine;
-    public UserOptions $userOptions;
-    public CreateNewPaymentUseCase $createNewPaymentUseCase;
+    private ContentPlanRepository $repository;
+    private EntityManagerInterface $em;
+    private LoggerInterface $log;
+    private Service $service;
+    private Registry $doctrine;
+    private UserOptions $userOptions;
+    private CreateNewPaymentUseCase $createNewPaymentUseCase;
 
     public function __construct(
         ContentPlanRepository $repository,
@@ -131,35 +131,27 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
 
 class CreateNewPaymentUseCase
 {
-    public $repository;
-    public $log;
-    public $userCurrency;
-    public $doctrine;
-    public $payments;
-    public $stripe;
+    private LoggerInterface $log;
+    private UserCurrency $userCurrency;
+    private Registry $doctrine;
+    private Payments $payments;
+    private StripeClient $stripe;
+    private Payment $payment;
 
     public function __construct(
-        ContentPlanRepository $repository,
         LoggerInterface $log,
         UserCurrency $userCurrency,
         Registry $doctrine,
         Payments $payments,
-        StripeClient $stripe
+        StripeClient $stripe,
+        Payment $payment
     ) {
-        $this->repository = $repository;
         $this->log = $log;
         $this->userCurrency = $userCurrency;
         $this->doctrine = $doctrine;
         $this->payments = $payments;
         $this->stripe = $stripe;
-    }
-
-    public function getNewPayment()
-    {
-        if (empty($this->Payment)) {
-            $this->Payment = new Payment();
-        }
-        return $this->Payment;
+        $this->payment = $payment;
     }
 
     public function execute($client): Payment
@@ -211,7 +203,7 @@ class CreateNewPaymentUseCase
             return null;
         }
 
-        $payment = $this->getNewPayment();
+        $payment = $this->payment;
         $payment->setStripeCustomerId($stripeCustomer->getStripeCustomerId());
         $payment->setSystem('stripe');
         $payment->setUser($client);
