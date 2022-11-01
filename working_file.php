@@ -99,10 +99,14 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
         $contentPlan = $this->repository->find($contentPlanId);
 
         //вынесли этот код из колбека так как колбек принимает в себя userPlan по этому сюда вынесим что б он мог его use 
+
+        //переменную $client использовать везде где пишется $contentPlan->getClient() 
+        $client = $contentPlan->getClient();
+        $userId = $client->id;
+
         $userPlanRepository = $this->doctrine->getRepository(UserPlan::class);
         $userPlan = $userPlanRepository->find($contentPlan->getClient()->getUserPlan()->getId(), LockMode::PESSIMISTIC_WRITE);
         $userId = $contentPlan->getClient()->id;
-
 
 
         //в отдельный колбек можно вытащить 
@@ -139,6 +143,8 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
             }
 
             //подобные куски кода вынести в отдельный метод так как логика его повторяется
+            //
+            // $this->updateStatus(.... ,  .....);
             $userPlan->setSubscriptionUpdateStatus('in_progress');
             $this->em->persist($userPlan);
             $this->em->flush();
@@ -159,11 +165,17 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
         // get last content plan for the user: limit 1, content plan id DESC, content_plan_id > $contentPlan->getId()
         $nextContentPlan = $this->repository->getNext($contentPlan);
 
+
+
+        // такой логики на проверку слишком много в коде может быть тогда проще вынести его в какой нибудь патерн матчинг 
+        //или сделать через какой нибудь
+        //switch case но я не думаю что тут прям такое требуется 
         if (in_array($nextContentPlan->getStatus(), ['progress', 'done'])) {
             // $contentPlan->getClient()->getUserPlan()->setSubscriptionUpdateStatus('ready');
             // тут наверное имелоссь ввиду что следующему плану будет выдан статус ready  
             //а так же не хватает сохранения в персист для дальнейшей записи если так оставить то он возьмёт запись из колбека полследнюю которая осталась в обьекте  
 
+            //$this->updateStatus(.... ,  .....);
             $nextContentPlan->getClient()->getUserPlan()->setSubscriptionUpdateStatus('ready');
             $this->em->persist($nextContentPlan);
             $this->em->flush();
@@ -180,6 +192,7 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
             //наверное тут должно было прдти булевое значение и если там есть сабскрайб то срабатывает по этому меняем на === за место !=
             if ($autorenew === 1) {
                 $userPlan = $contentPlan->getClient()->getUserPlan();
+                //$this->updateStatus(.... ,  .....);
                 $userPlan->setSubscriptionUpdateStatus('ready');
                 $this->em->persist($userPlan);
                 $this->em->flush();
@@ -188,6 +201,15 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
                 //предлогаю вынести в отдельный класс такое  слишком уж странно что логика payment присутствует в классе подписок 
                 //и дать какой то метод который вернёт нам значение  переменной $payment
                 $payment = $this->createNewPaymentUseCase->execute($userId);
+
+
+                //     добавить лог есть payment как то вернул пустоту  и вывести в лог 
+                // if (empty($payment)) {
+                //     $this->log->error('no payments return', ['userId' => $userId]);
+                //     return;
+                // }
+
+
 
                 $this->service->createContentPlan($contentPlan->getClient(), $contentPlan->getNumAccounts(), $payment);
                 return;
@@ -265,6 +287,7 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
         }
 
         $userPlan = $contentPlan->getClient()->getUserPlan();
+        //$this->updateStatus(.... ,  .....);
         $userPlan->setSubscriptionUpdateStatus('ready');
         //добавлен persist
         $this->em->persist($userPlan);
@@ -323,7 +346,7 @@ class CreateNewPaymentUseCase
 
                     // оставил бы только int float не должен храниться в бд при подсчёте денег 
                     //хорошим тоном было бы сохранять в копейках пенях тыйнах или прочих расчётных разметных еденицах 
-                    
+
                     'amount' => intval(floatval($amount) * 100),
                     'currency' => $currency,
                 ]

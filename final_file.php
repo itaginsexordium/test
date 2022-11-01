@@ -56,7 +56,6 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
         return true;
     }
 
-
     private function updateStatus($contentPlan, String $status)
     {
         $contentPlan->setSubscriptionUpdateStatus($status);
@@ -69,23 +68,24 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
         $contentPlanId = $message->getId();
 
         $contentPlan = $this->repository->find($contentPlanId);
+        $client = $contentPlan->getClient();
+        $userId = $client->id;
+
         $userPlanRepository = $this->doctrine->getRepository(UserPlan::class);
-        $userId = $contentPlan->getClient()->id;
         $userPlan = $userPlanRepository->find(
-            $contentPlan->getClient()
+            $client
                 ->getUserPlan()
                 ->getId(),
             LockMode::PESSIMISTIC_WRITE
         );
-
 
         $lock = $this->em->getConnection()->transactional(
             $this->transactionalCallBack($userPlan, $userId)
         );
 
         if (!$lock) {
-            throw new Exception('Subscription already in progress.userId =>' . $userId);
             $this->log->error('Subscription already in progress.', ['userId' => $userId]);
+            throw new Exception('Subscription already in progress.userId =>' . $userId);
         }
 
         $nextContentPlan = $this->repository->getNext($contentPlan);
@@ -103,14 +103,19 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
                 $this->updateStatus($userPlan, 'ready');
                 return;
             } else {
-                $payment = $this->createNewPaymentUseCase->execute($contentPlan->getClient());
+                $payment = $this->createNewPaymentUseCase->execute($client);
 
-                $this->service->createContentPlan($contentPlan->getClient(), $contentPlan->getNumAccounts(), $payment);
+                if (empty($payment)) {
+                    $this->log->error('no payments return', ['userId' => $userId]);
+                    return;
+                }
+
+                $this->service->createContentPlan($client, $contentPlan->getNumAccounts(), $payment);
                 return;
             }
         }
 
-        $userPlan = $contentPlan->getClient()->getUserPlan();
+        $userPlan = $client->getUserPlan();
         $this->updateStatus($userPlan, 'ready');
     }
 }
