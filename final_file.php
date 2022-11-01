@@ -25,24 +25,32 @@ use Stripe\StripeClient;
 
 final class ExpireContentPlanHandler implements MessageHandlerInterface
 {
-    private ContentPlanRepository $repository;
-    private EntityManagerInterface $em;
-    private LoggerInterface $log;
-    private Service $service;
-    private Registry $doctrine;
-    private UserOptions $userOptions;
+    public ContentPlanRepository $repository;
+    public EntityManagerInterface $em;
+    public LoggerInterface $log;
+    public Service $service;
+    public Registry $doctrine;
+    public UserOptions $userOptions;
+    public CreateNewPaymentUseCase $createNewPaymentUseCase;
 
-    public function __construct()
-    {
-        $this->repository = new ContentPlanRepository();
-        $this->em = new EntityManagerInterface();
-        $this->log = new LoggerInterface();
-        $this->service = new Service();
-        $this->doctrine = new Registry();
-        $this->userOptions = new UserOptions();
+    public function __construct(
+        ContentPlanRepository $repository,
+        EntityManagerInterface $em,
+        LoggerInterface $log,
+        Service $service,
+        Registry $doctrine,
+        UserOptions $userOptions,
+        CreateNewPaymentUseCase $createNewPaymentUseCase
+    ) {
+        $this->repository = $repository;
+        $this->em = $em;
+        $this->log = $log;
+        $this->service = $service;
+        $this->doctrine = $doctrine;
+        $this->userOptions = $userOptions;
 
         //альтернативный класс для одного кодового блока 
-        $this->createNewPaymentUseCase = new CreateNewPaymentUseCase();
+        $this->createNewPaymentUseCase = $createNewPaymentUseCase;
     }
 
     private function transactionalCallBack(&$userPlan, int $userId)
@@ -123,14 +131,35 @@ final class ExpireContentPlanHandler implements MessageHandlerInterface
 
 class CreateNewPaymentUseCase
 {
-    public function __construct()
+    public $repository;
+    public $log;
+    public $userCurrency;
+    public $doctrine;
+    public $payments;
+    public $stripe;
+
+    public function __construct(
+        ContentPlanRepository $repository,
+        LoggerInterface $log,
+        UserCurrency $userCurrency,
+        Registry $doctrine,
+        Payments $payments,
+        StripeClient $stripe
+    ) {
+        $this->repository = $repository;
+        $this->log = $log;
+        $this->userCurrency = $userCurrency;
+        $this->doctrine = $doctrine;
+        $this->payments = $payments;
+        $this->stripe = $stripe;
+    }
+
+    public function getNewPayment()
     {
-        $this->repository = new ContentPlanRepository();
-        $this->log = new LoggerInterface();
-        $this->userCurrency = new UserCurrency();
-        $this->doctrine = new Registry();
-        $this->payments = new Payments();
-        $this->stripe = new StripeClient();
+        if (empty($this->Payment)) {
+            $this->Payment = new Payment();
+        }
+        return $this->Payment;
     }
 
     public function execute($client): Payment
@@ -182,7 +211,7 @@ class CreateNewPaymentUseCase
             return null;
         }
 
-        $payment = new Payment();
+        $payment = $this->getNewPayment();
         $payment->setStripeCustomerId($stripeCustomer->getStripeCustomerId());
         $payment->setSystem('stripe');
         $payment->setUser($client);
